@@ -5,55 +5,39 @@ Hash :: #import "Hash";
 String :: #import "String";
 using String;
 
-// add_key_value_literal :: (
-//     key_val_literal:  string,
-//     taillight_rule : *String_Builder,
-//     has_namespace  :  bool,
-//     is_important   :  bool
-// ) {
+add_key_value_literal :: (key_val_literal: string) #expand {
+    if `has_namespace
+        append(*`taillight_rule, "  ");
 
+    append(*`taillight_rule, "  ");
+    append(*`taillight_rule, key_val_literal);
 
-// add_key_with_parsed_value :: (
-//     key             :  string,
-//     values_and_units:  [] string,
-//     taillight_rule  : *String_Builder,
-//     has_namespace   :  bool,
-//     is_important    :  bool
-// ) {
+    if `is_important
+        append(*`taillight_rule, " !important");
+
+    append(*`taillight_rule, ";\n");
+}
+
+add_key_with_parsed_value :: (key: string) #expand {
+    if `has_namespace
+        append(*`taillight_rule, "  ");
+
+    append(*`taillight_rule, "  ");
+    append(*`taillight_rule, key);
+    append(*`taillight_rule, ":");
+
+    for `values_and_units {
+        append(*`taillight_rule, " ");
+        append(*`taillight_rule, it);
+    }
+
+    if `is_important
+        append(*`taillight_rule, " !important");
+
+    append(*`taillight_rule, ";\n");
+}
 
 main :: () {
-    add_key_value_literal :: (key_val_literal: string) #expand {
-        if `has_namespace
-            append(*`taillight_rule, "  ");
-
-        append(*`taillight_rule, "  ");
-        append(*`taillight_rule, key_val_literal);
-
-        if `is_important
-            append(*`taillight_rule, " !important");
-
-        append(*`taillight_rule, ";\n");
-    }
-
-    add_key_with_parsed_value :: (key: string) #expand {
-        if `has_namespace
-            append(*`taillight_rule, "  ");
-
-        append(*`taillight_rule, "  ");
-        append(*`taillight_rule, key);
-        append(*`taillight_rule, ":");
-
-        for `values_and_units {
-            append(*`taillight_rule, " ");
-            append(*`taillight_rule, it);
-        }
-
-        if `is_important
-            append(*`taillight_rule, " !important");
-
-        append(*`taillight_rule, ";\n");
-    }
-
     input_html_path := "index.html";
     input_html := read_entire_file(input_html_path);
     
@@ -346,5 +330,19 @@ main :: () {
         }
 
         print("%\n\n", builder_to_string(*taillight_rule));
+
+        if starts_with(html_rule, "m:") {
+            table_add(*mobile_namespace_rules, builder_to_string(*taillight_rule), 0);
+        } else if starts_with(html_rule, "t:") {
+            table_add(*tablet_namespace_rules, builder_to_string(*taillight_rule), 0);
+        } else if starts_with(html_rule, "c:") {
+            table_add(*computer_namespace_rules, builder_to_string(*taillight_rule), 0);
+        } else if starts_with(html_rule, "uw:") {
+            table_add(*ultrawide_namespace_rules, builder_to_string(*taillight_rule), 0);
+        } else {
+            table_add(*no_namespace_rules, builder_to_string(*taillight_rule), 0);
+        }
     }
+
+    
 }
