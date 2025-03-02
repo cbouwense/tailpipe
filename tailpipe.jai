@@ -7,39 +7,68 @@ using String;
 
 add_key_value_literal :: (key_val_literal: string) #expand {
     if `has_namespace
-        append(*`taillight_rule, "  ");
+        append(*`tailpipe_rule, "  ");
 
-    append(*`taillight_rule, "  ");
-    append(*`taillight_rule, key_val_literal);
+    append(*`tailpipe_rule, "  ");
+    append(*`tailpipe_rule, key_val_literal);
 
     if `is_important
-        append(*`taillight_rule, " !important");
+        append(*`tailpipe_rule, " !important");
 
-    append(*`taillight_rule, ";\n");
+    append(*`tailpipe_rule, ";\n");
 }
 
 add_key_with_parsed_value :: (key: string) #expand {
     if `has_namespace
-        append(*`taillight_rule, "  ");
+        append(*`tailpipe_rule, "  ");
 
-    append(*`taillight_rule, "  ");
-    append(*`taillight_rule, key);
-    append(*`taillight_rule, ":");
+    append(*`tailpipe_rule, "  ");
+    append(*`tailpipe_rule, key);
+    append(*`tailpipe_rule, ":");
 
     for `values_and_units {
-        append(*`taillight_rule, " ");
-        append(*`taillight_rule, it);
+        append(*`tailpipe_rule, " ");
+        append(*`tailpipe_rule, it);
     }
 
     if `is_important
-        append(*`taillight_rule, " !important");
+        append(*`tailpipe_rule, " !important");
 
-    append(*`taillight_rule, ";\n");
+    append(*`tailpipe_rule, ";\n");
 }
 
 main :: () {
-    input_html_path := "index.html";
-    input_html := read_entire_file(input_html_path);
+    html_file_path: string = "index.html";
+    css_file_path : string = "tailpipe.css";
+    verbose_mode  : bool   = false;
+    watch_mode    : bool   = false;
+
+    cli_args := get_command_line_arguments();
+    for cli_args {
+        if ends_with(it, ".html") {
+            html_file_path = it; // TODO: can I even do this? Do I need to actually copy this or something
+        }
+        else if ends_with(it, ".css") {
+            css_file_path = it;
+        }
+        // Help text
+        else if equal(it, "-h") || equal(it, "--help") {
+            print("Usage: % [optional input.html] [optional output.css] [flags]\n", cli_args[0]);
+            print("Flags:\n");
+            print("  -h, --help     Display this help message\n");
+            print("  -v, --verbose  Enable verbose output\n");
+            print("  -w, --watch    Enable watch mode, so tailpipe runs on every input html modification\n");
+            exit(0);
+        }
+        else if equal(it, "-v") || equal(it, "--verbose") {
+            verbose_mode = true;
+        }
+        else if equal(it, "-w") || equal(it, "--watch") {
+            watch_mode = true;
+        }
+    }
+
+    input_html := read_entire_file(html_file_path);
     
     html_rules : Table (string, Any, null, String.equal, 70, true); // using this as a Set
     i: int = 0;
@@ -95,9 +124,9 @@ main :: () {
         }
 
         is_important    := false;
-        taillight_class : String_Builder;
-        taillight_rule  : String_Builder;
-        init_string_builder(*taillight_class);
+        tailpipe_class : String_Builder;
+        tailpipe_rule  : String_Builder;
+        init_string_builder(*tailpipe_class);
 
         // Construct the CSS rule that will be inserted into the stylesheet file.
         {
@@ -105,18 +134,18 @@ main :: () {
             for html_rule {
                 if it == {
                     case #char ":";
-                        append(*taillight_class, "\\:");
+                        append(*tailpipe_class, "\\:");
                     case #char "!";
-                        append(*taillight_class, "\\!");
+                        append(*tailpipe_class, "\\!");
                         is_important = true;
                     case #char "%";
-                        append(*taillight_class, "\\%");
+                        append(*tailpipe_class, "\\%");
                     case #char ".";
-                        append(*taillight_class, "\\.");
+                        append(*tailpipe_class, "\\.");
                     case #char "#";
-                        append(*taillight_class, "\\#");
+                        append(*tailpipe_class, "\\#");
                     case; // default
-                        append(*taillight_class, it);
+                        append(*tailpipe_class, it);
                 }
             }
 
@@ -127,10 +156,10 @@ main :: () {
             if equal(html_rule, "ultrawide") continue;
 
             // Add classname
-            if has_namespace append(*taillight_rule, "  "); // Indent once if inside of a media query.
-            append(*taillight_rule, ".");
-            append_and_steal_buffers(*taillight_rule, *taillight_class); // TODO: I wonder if this is a terrible idea.
-            append(*taillight_rule, " {\n");
+            if has_namespace append(*tailpipe_rule, "  "); // Indent once if inside of a media query.
+            append(*tailpipe_rule, ".");
+            append_and_steal_buffers(*tailpipe_rule, *tailpipe_class); // TODO: I wonder if this is a terrible idea.
+            append(*tailpipe_rule, " {\n");
 
             // Add properties
             {
@@ -196,20 +225,20 @@ main :: () {
                 } else if equal(abbreviated_name, "grid") {
                     add_key_value_literal("display: grid");
                 } else if equal(abbreviated_name, "gridCol") {
-                    if has_namespace append(*taillight_rule, "  ");
+                    if has_namespace append(*tailpipe_rule, "  ");
 
-                    append(*taillight_rule, "  ");
-                    append(*taillight_rule, "grid-template-columns: ");
+                    append(*tailpipe_rule, "  ");
+                    append(*tailpipe_rule, "grid-template-columns: ");
 
                     if equal(values_and_units.data[0], "1") {
-                        append(*taillight_rule, "minmax(0, 1fr)");
+                        append(*tailpipe_rule, "minmax(0, 1fr)");
                     } else {
-                        append(*taillight_rule, "repeat(");
-                        append(*taillight_rule, values_and_units[0]);
-                        append(*taillight_rule,", 1fr)");
+                        append(*tailpipe_rule, "repeat(");
+                        append(*tailpipe_rule, values_and_units[0]);
+                        append(*tailpipe_rule,", 1fr)");
                     }
-                    if is_important append(*taillight_rule, " !important");
-                    append(*taillight_rule, ";\n");
+                    if is_important append(*tailpipe_rule, " !important");
+                    append(*tailpipe_rule, ";\n");
                 } else if equal(abbreviated_name, "grow") {
                     add_key_with_parsed_value("flex-grow");
                 } else if equal(abbreviated_name, "h") {
@@ -319,30 +348,125 @@ main :: () {
                         table_add(*unknown_rules, html_rule, 0);
                     }
 
-                    // If this rule is not supported by taillight, then we don't actually want to add it to the
-                    // generated taillight rule, so just continue here to move onto the next rule.
+                    // If this rule is not supported by tailpipe, then we don't actually want to add it to the
+                    // generated tailpipe rule, so just continue here to move onto the next rule.
                     continue;
                 }
             }
 
-            if has_namespace append(*taillight_rule, "  ");
-            append(*taillight_rule, "}");
+            if has_namespace append(*tailpipe_rule, "  ");
+            append(*tailpipe_rule, "}");
         }
 
-        print("%\n\n", builder_to_string(*taillight_rule));
+        tailpipe_rule_string: string = builder_to_string(*tailpipe_rule);
 
         if starts_with(html_rule, "m:") {
-            table_add(*mobile_namespace_rules, builder_to_string(*taillight_rule), 0);
+            table_add(*mobile_namespace_rules, tailpipe_rule_string, 0);
         } else if starts_with(html_rule, "t:") {
-            table_add(*tablet_namespace_rules, builder_to_string(*taillight_rule), 0);
+            table_add(*tablet_namespace_rules, tailpipe_rule_string, 0);
         } else if starts_with(html_rule, "c:") {
-            table_add(*computer_namespace_rules, builder_to_string(*taillight_rule), 0);
+            table_add(*computer_namespace_rules, tailpipe_rule_string, 0);
         } else if starts_with(html_rule, "uw:") {
-            table_add(*ultrawide_namespace_rules, builder_to_string(*taillight_rule), 0);
+            table_add(*ultrawide_namespace_rules, tailpipe_rule_string, 0);
         } else {
-            table_add(*no_namespace_rules, builder_to_string(*taillight_rule), 0);
+            table_add(*no_namespace_rules, tailpipe_rule_string, 0);
         }
     }
 
-    
+    if (unknown_rules.count > 0 && verbose_mode) {
+        print("WARNING: Tailpipe found the following class names but didn't recognize them. These are probably just custom classes you have, but you might want to check out this list just in case:\n");
+        for unknown_rules {
+            print("%\n", it_index);
+        }
+    }
+    if (verbose_mode) {
+        print("Successfully generated tailpipe rules.\n");
+    }
+
+    // Write the lines to the final css file
+    if (verbose_mode) {
+        print("Writing tailpipe rules to %...\n", css_file_path);
+    }
+
+    final_output: String_Builder;
+    append(*final_output, "/**\n * Stylesheet generated by tailpipe https://github.com/cbouwense/tailpipe.\n");
+    append(*final_output, " * You can edit this file, but I would not recommend it since it will be overwritten without warning the next time you run tailpipe.\n");
+    append(*final_output, " * If you want to add your own rules, I recommend you add them to a separate stylesheets (I use a 'custom.css' file for this).\n */\n");
+
+    print("no_namespace_rules:\n");
+    for no_namespace_rules {
+        print("%\n", it_index);
+        append(*final_output, it_index);
+        append(*final_output, "\n");
+    }
+    append(*final_output, "\n\n");
+
+    append(*final_output, "/* Mobile */\n");
+    append(*final_output, "@media (max-width: 768px) {\n");
+    append(*final_output, "  .mobile { display: inherit; }\n");
+    append(*final_output, "  .tablet { display: none; }\n");
+    append(*final_output, "  .computer { display: none; }\n");
+    append(*final_output, "  .ultrawide { display: none; }\n");
+    append(*final_output, "  :root { font-size: 14px; }\n");
+    print("mobile_namespace_rules:\n");
+    for mobile_namespace_rules {
+        print("%\n", it_index);
+        append(*final_output, it_index);
+        append(*final_output, "\n");
+    }
+    append(*final_output, "}\n\n");
+
+    append(*final_output, "/* Tablet */\n");
+    append(*final_output, "@media (min-width: 768px) and (max-width: 1024px) {\n");
+    append(*final_output, "  .mobile { display: none; }\n");
+    append(*final_output, "  .tablet { display: inherit; }\n");
+    append(*final_output, "  .computer { display: none; }\n");
+    append(*final_output, "  .ultrawide { display: none; }\n");
+    append(*final_output, "  :root { font-size: 14px; }\n");
+
+    print("tablet_namespace_rules:\n");
+    for tablet_namespace_rules {
+        print("%\n", it_index);
+        append(*final_output, it_index);
+        append(*final_output, "\n");
+    }
+    append(*final_output, "}\n\n");
+
+    append(*final_output, "/* Computer (desktop / laptop) */\n");
+    append(*final_output, "@media (min-width: 1024px) and (max-width: 3840px) {\n");
+    append(*final_output, "  .mobile { display: none; }\n");
+    append(*final_output, "  .tablet { display: none; }\n");
+    append(*final_output, "  .computer { display: inherit; }\n");
+    append(*final_output, "  .ultrawide { display: none; }\n");
+    append(*final_output, "  :root { font-size: 18px; }\n");
+    for computer_namespace_rules {
+        append(*final_output, it_index);
+        append(*final_output, "\n");
+    }
+    append(*final_output, "}\n\n");
+
+    append(*final_output, "/* Ultrawide */\n");
+    append(*final_output, "@media (min-width: 3840px) {\n");
+    append(*final_output, "  .mobile { display: none; }\n");
+    append(*final_output, "  .tablet { display: none; }\n");
+    append(*final_output, "  .computer { display: none; }\n");
+    append(*final_output, "  .ultrawide { display: inherit; }\n");
+    append(*final_output, "  :root { font-size: 18px; }\n");
+    for ultrawide_namespace_rules {
+        append(*final_output, it_index);
+        append(*final_output, "\n");
+    }
+    append(*final_output, "}\n\n");
+
+    write_succeeded := write_entire_file(css_file_path, *final_output);
+
+    if !write_succeeded {
+        print("ERROR: Unable to write to %\n", css_file_path);
+        exit(1);
+    }
+
+    if verbose_mode {
+        print("Successfully wrote tailpipe rules to %.\n", css_file_path);
+        print("All done, hope it looks good!\n");
+    }
 }
