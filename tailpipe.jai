@@ -2,6 +2,8 @@
 Hash :: #import "Hash";
 #import "Hash_Table";
 #import "File";
+#import "File_Utilities";
+File_Watcher :: #import "File_Watcher";
 String :: #import "String";
 using String;
 
@@ -50,37 +52,21 @@ ADD_KEY_WITH_PARSED_VALUE :: (key: string) -> bool #expand {
     return true;
 }
 
-main :: () {
-    html_file_path: string = "index.html";
-    css_file_path : string = "tailpipe.css";
-    verbose_mode  : bool   = false;
-    watch_mode    : bool   = false;
+html_file_path: string = "index.html";
+css_file_path : string = "tailpipe.css";
+verbose_mode  : bool   = false;
+watch_mode    : bool   = false;
 
-    cli_args := get_command_line_arguments();
-    for cli_args {
-        if ends_with(it, ".html") {
-            html_file_path = it;
+file_change_callback :: (watcher: *File_Watcher.File_Watcher(void), change: *File_Watcher.File_Change, user_data: *void) {
+    if ends_with(change.full_path, html_file_path) {
+        if verbose_mode {
+            print("Detected change to %, regenerating %", html_file_path, css_file_path);
         }
-        else if ends_with(it, ".css") {
-            css_file_path = it;
-        }
-        // Help text
-        else if equal(it, "-h") || equal(it, "--help") {
-            print("Usage: % [optional input.html] [optional output.css] [flags]\n", cli_args[0]);
-            print("Flags:\n");
-            print("  -h, --help     Display this help message\n");
-            print("  -v, --verbose  Enable verbose output\n");
-            print("  -w, --watch    Enable watch mode, so tailpipe runs on every input html modification\n");
-            exit(0);
-        }
-        else if equal(it, "-v") || equal(it, "--verbose") {
-            verbose_mode = true;
-        }
-        else if equal(it, "-w") || equal(it, "--watch") {
-            watch_mode = true;
-        }
+        run();
     }
+}
 
+run :: () {
     input_html := read_entire_file(html_file_path);
     
     // Using these all as Sets.
@@ -329,7 +315,7 @@ main :: () {
                 } else if equal(abbreviated_name, "relative") {
                     ADD_KEY_VALUE_LITERAL("position: relative");
                 } else if equal(abbreviated_name, "rounded") {
-                    ADD_KEY_VALUE_LITERAL("border-radius: 8px;");
+                    ADD_KEY_VALUE_LITERAL("border-radius: 8px");
                 } else if equal(abbreviated_name, "row") {
                     ADD_KEY_VALUE_LITERAL("flex-direction: row");
                 } else if equal(abbreviated_name, "shadowSm") {
@@ -483,5 +469,70 @@ main :: () {
     if verbose_mode {
         print("Successfully wrote tailpipe rules to %.\n", css_file_path);
         print("All done, hope it looks good!\n");
+    }
+}
+
+main :: () {
+    { // Process arguments
+        cli_args := get_command_line_arguments();
+        for cli_args {
+            if ends_with(it, ".html") {
+                html_file_path = it;
+            }
+            else if ends_with(it, ".css") {
+                css_file_path = it;
+            }
+            // Help text
+            else if equal(it, "-h") || equal(it, "--help") {
+                print("Usage: % [optional input.html] [optional output.css] [flags]\n", cli_args[0]);
+                print("Flags:\n");
+                print("  -h, --help     Display this help message\n");
+                print("  -v, --verbose  Enable verbose output\n");
+                print("  -w, --watch    Enable watch mode, so tailpipe runs on every input html modification\n");
+                exit(0);
+            }
+            else if equal(it, "-v") || equal(it, "--verbose") {
+                verbose_mode = true;
+            }
+            else if equal(it, "-w") || equal(it, "--watch") {
+                watch_mode = true;
+            }
+        }
+    }
+
+    // Check to see if the html file even exists.
+    if !file_exists(html_file_path) {
+        if verbose_mode {
+            print("ERROR: unable to find input html file at \"%\". Are you sure the pathing is correct?", html_file_path);
+            cwd := get_working_directory();
+            print("Current working directory: %\n", cwd);
+        }
+        exit(1);
+    }
+
+    if watch_mode {
+        watcher: File_Watcher.File_Watcher(); // TODO: pass in the info instead of having globals
+        watcher_init_succeeded := File_Watcher.init(*watcher, file_change_callback, events_to_watch = .MODIFIED, 0.1);
+        if !watcher_init_succeeded {
+            log_error("Could not initialize watcher");
+            exit(1);
+        }
+        defer File_Watcher.deinit(watcher);
+
+        // TODO: other directories other than cwd
+        add_directories_succeeded := File_Watcher.add_directories(*watcher, ".");
+        if !add_directories_succeeded {
+            log_error("Could not add directory to watcher");
+            exit(1);
+        }
+
+        while true {
+            changed, needs_wait, wait_seconds := File_Watcher.process_changes(*watcher);
+            reset_temporary_storage();
+            sleep_milliseconds(100);
+        }
+
+    } else {
+        run();
     }
 }
