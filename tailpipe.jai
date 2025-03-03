@@ -5,7 +5,7 @@ Hash :: #import "Hash";
 String :: #import "String";
 using String;
 
-add_key_value_literal :: (key_val_literal: string) #expand {
+ADD_KEY_VALUE_LITERAL :: (key_val_literal: string) #expand {
     if `has_namespace
         append(*`tailpipe_rule, "  ");
 
@@ -18,7 +18,18 @@ add_key_value_literal :: (key_val_literal: string) #expand {
     append(*`tailpipe_rule, ";\n");
 }
 
-add_key_with_parsed_value :: (key: string) #expand {
+ADD_KEY_WITH_PARSED_VALUE :: (key: string) -> bool #expand {
+    if `value_and_unit.count == 0 {
+        if `verbose_mode
+            print("WARNING: Unable to parse value and unit for `%`. It could be that the html intended to use tailpipe class names but forgot their values (for example, class=\"b-\"). It's also possible that the html simply isn't using tailpipe, and happened to use the same class names as tailpipe names. Or a mixture of both. In any case, we can't add this rule to the output stylesheet (%).\n", `abbreviated_name, `css_file_path);
+
+        if !table_contains(*`unknown_rules, `html_rule) {
+            table_add(*`unknown_rules, `html_rule, 0);
+        }
+
+        continue; // Do not add this to the resulting stylesheet.
+    }
+    
     if `has_namespace
         append(*`tailpipe_rule, "  ");
 
@@ -26,7 +37,7 @@ add_key_with_parsed_value :: (key: string) #expand {
     append(*`tailpipe_rule, key);
     append(*`tailpipe_rule, ":");
 
-    for `values_and_units {
+    for `value_and_unit {
         append(*`tailpipe_rule, " ");
         append(*`tailpipe_rule, it);
     }
@@ -35,6 +46,8 @@ add_key_with_parsed_value :: (key: string) #expand {
         append(*`tailpipe_rule, " !important");
 
     append(*`tailpipe_rule, ";\n");
+
+    return true;
 }
 
 main :: () {
@@ -46,7 +59,7 @@ main :: () {
     cli_args := get_command_line_arguments();
     for cli_args {
         if ends_with(it, ".html") {
-            html_file_path = it; // TODO: can I even do this? Do I need to actually copy this or something
+            html_file_path = it;
         }
         else if ends_with(it, ".css") {
             css_file_path = it;
@@ -70,36 +83,44 @@ main :: () {
 
     input_html := read_entire_file(html_file_path);
     
-    html_rules : Table (string, Any, null, String.equal, 70, true); // using this as a Set
-    i: int = 0;
-    while i < input_html.count - 7 {
-        defer i += 1;
-
-        view := slice(input_html, i, 7);
-        
-        if !equal(view, "class=\"") continue;
-
-        i += 7;
-        j := i;
-        while input_html[j] != #char "\"" {
-            j += 1;
-        }
-
-        view = trim(slice(input_html, i, j - i));
-
-        tokens := split(view, " ");
-        for tokens {
-            if !table_contains(*html_rules, it)
-                table_add(*html_rules, it, 0); // 0 is just a throwaway value, since Sets don't need values.
-        }            
-    }
-
+    // Using these all as Sets.
+    // TODO: make a Set in Jai
+    html_rules                : Table (string, Any, null, String.equal, 70, true);
     no_namespace_rules        : Table (string, Any, null, String.equal, 70, true);
     mobile_namespace_rules    : Table (string, Any, null, String.equal, 70, true);
     tablet_namespace_rules    : Table (string, Any, null, String.equal, 70, true);
     computer_namespace_rules  : Table (string, Any, null, String.equal, 70, true);
     ultrawide_namespace_rules : Table (string, Any, null, String.equal, 70, true);
     unknown_rules             : Table (string, Any, null, String.equal, 70, true);
+
+    // Pass a rolling view of 7 characters over the entire html file. If we find class=" then we
+    // save all of the characters until the next ", split them apart by spaces, and throw them
+    // all into the Set called html_rules. These html_rules are then processed in the next section
+    // into tailpipe rules.
+    {
+        i: int = 0;
+        while i < input_html.count - 7 {
+            defer i += 1;
+
+            view := slice(input_html, i, 7);
+            
+            if !equal(view, "class=\"") continue;
+
+            i += 7;
+            j := i;
+            while input_html[j] != #char "\"" {
+                j += 1;
+            }
+
+            view = trim(slice(input_html, i, j - i));
+
+            tokens := split(view, " ");
+            for tokens {
+                if !table_contains(*html_rules, it)
+                    table_add(*html_rules, it, 0); // 0 is just a throwaway value, since Sets don't need values.
+            }            
+        }
+    }
 
     for html_rules {
         // "m:fs-1rem!"
@@ -116,11 +137,11 @@ main :: () {
             then name_and_namespace_as_tokens.data[1]
             else name_and_namespace_as_tokens.data[0];
 
-        values_and_units : [..] string;
+        value_and_unit : [..] string;
         for 1..tokens.count-1 {
             token         := tokens[it];
             trimmed_token := trim(token, "!");
-            array_add(*values_and_units, trimmed_token);
+            array_add(*value_and_unit, trimmed_token);
         }
 
         is_important    := false;
@@ -164,185 +185,186 @@ main :: () {
             // Add properties
             {
                 if equal(abbreviated_name, "absolute") {
-                    add_key_value_literal("position: absolute");
+                    ADD_KEY_VALUE_LITERAL("position: absolute");
                 } else if equal(abbreviated_name, "alignStart") {
-                    add_key_value_literal("align-items: flex-start");
+                    ADD_KEY_VALUE_LITERAL("align-items: flex-start");
                 } else if equal(abbreviated_name, "alignEnd") {
-                    add_key_value_literal("align-items: flex-end");
+                    ADD_KEY_VALUE_LITERAL("align-items: flex-end");
                 } else if equal(abbreviated_name, "alignCenter") {
-                    add_key_value_literal("align-items: center");
+                    ADD_KEY_VALUE_LITERAL("align-items: center");
                 } else if equal(abbreviated_name, "alignBaseline") {
-                    add_key_value_literal("align-items: baseline");
+                    ADD_KEY_VALUE_LITERAL("align-items: baseline");
                 } else if equal(abbreviated_name, "alignStretch") {
-                    add_key_value_literal("align-items: stretch");
+                    ADD_KEY_VALUE_LITERAL("align-items: stretch");
                 } else if equal(abbreviated_name, "b") {
-                    add_key_with_parsed_value("border");
+                    ADD_KEY_WITH_PARSED_VALUE("border");
                 } else if equal(abbreviated_name, "breakAll") {
-                    add_key_value_literal("word-break: break-all");
+                    ADD_KEY_VALUE_LITERAL("word-break: break-all");
                 } else if equal(abbreviated_name, "breakWord") {
-                    add_key_value_literal("word-wrap: break-word");
+                    ADD_KEY_VALUE_LITERAL("word-wrap: break-word");
                 } else if equal(abbreviated_name, "basis") {
-                    add_key_with_parsed_value("flex-basis");
+                    ADD_KEY_WITH_PARSED_VALUE("flex-basis");
                 } else if equal(abbreviated_name, "bb") {
-                    add_key_with_parsed_value("border-bottom");
+                    ADD_KEY_WITH_PARSED_VALUE("border-bottom");
                 } else if equal(abbreviated_name, "bg") {
-                    if equal(values_and_units[0], "default") {
-                        add_key_value_literal("background-color: var(--background-color)");
+                    if equal(value_and_unit[0], "default") {
+                        ADD_KEY_VALUE_LITERAL("background-color: var(--background-color)");
                     } else {
-                        add_key_with_parsed_value("background-color");
+                        ADD_KEY_WITH_PARSED_VALUE("background-color");
                     }
                 } else if equal(abbreviated_name, "bl") {
-                    add_key_with_parsed_value("border-left");
+                    ADD_KEY_WITH_PARSED_VALUE("border-left");
                 } else if equal(abbreviated_name, "br") {
-                    add_key_with_parsed_value("border-right");
+                    ADD_KEY_WITH_PARSED_VALUE("border-right");
                 } else if equal(abbreviated_name, "brad") {
-                    add_key_with_parsed_value("border-radius");
+                    ADD_KEY_WITH_PARSED_VALUE("border-radius");
                 } else if equal(abbreviated_name, "bt") {
-                    add_key_with_parsed_value("border-top");
+                    ADD_KEY_WITH_PARSED_VALUE("border-top");
                 } else if equal(abbreviated_name, "bottom") {
-                    add_key_with_parsed_value("bottom");
+                    ADD_KEY_WITH_PARSED_VALUE("bottom");
                 } else if equal(abbreviated_name, "bx") {
-                    add_key_with_parsed_value("border-left");
-                    add_key_with_parsed_value("border-right");
+                    ADD_KEY_WITH_PARSED_VALUE("border-left");
+                    ADD_KEY_WITH_PARSED_VALUE("border-right");
                 } else if equal(abbreviated_name, "by") {
-                    add_key_with_parsed_value("border-top");
-                    add_key_with_parsed_value("border-bottom");
+                    ADD_KEY_WITH_PARSED_VALUE("border-top");
+                    ADD_KEY_WITH_PARSED_VALUE("border-bottom");
                 } else if equal(abbreviated_name, "c") {
-                    add_key_with_parsed_value("color");
+                    ADD_KEY_WITH_PARSED_VALUE("color");
                 } else if equal(abbreviated_name, "column") {
-                    add_key_value_literal("flex-direction: column");
+                    ADD_KEY_VALUE_LITERAL("flex-direction: column");
                 } else if equal(abbreviated_name, "dot") {
-                    add_key_value_literal("list-style-type: disc");
-                    add_key_value_literal("margin-left: 1.5rem");
+                    ADD_KEY_VALUE_LITERAL("list-style-type: disc");
+                    ADD_KEY_VALUE_LITERAL("margin-left: 1.5rem");
                 } else if equal(abbreviated_name, "fixed") {
-                    add_key_value_literal("position: fixed");
+                    ADD_KEY_VALUE_LITERAL("position: fixed");
                 } else if equal(abbreviated_name, "flex") {
-                    add_key_value_literal("display: flex");
+                    ADD_KEY_VALUE_LITERAL("display: flex");
                 } else if equal(abbreviated_name, "fs") {
-                    add_key_with_parsed_value("font-size");
+                    ADD_KEY_WITH_PARSED_VALUE("font-size");
                 } else if equal(abbreviated_name, "gap") {
-                    add_key_with_parsed_value("gap");
+                    ADD_KEY_WITH_PARSED_VALUE("gap");
                 } else if equal(abbreviated_name, "grid") {
-                    add_key_value_literal("display: grid");
+                    ADD_KEY_VALUE_LITERAL("display: grid");
                 } else if equal(abbreviated_name, "gridCol") {
                     if has_namespace append(*tailpipe_rule, "  ");
 
                     append(*tailpipe_rule, "  ");
                     append(*tailpipe_rule, "grid-template-columns: ");
 
-                    if equal(values_and_units.data[0], "1") {
+                    if equal(value_and_unit.data[0], "1") {
                         append(*tailpipe_rule, "minmax(0, 1fr)");
                     } else {
                         append(*tailpipe_rule, "repeat(");
-                        append(*tailpipe_rule, values_and_units[0]);
+                        append(*tailpipe_rule, value_and_unit[0]);
                         append(*tailpipe_rule,", 1fr)");
                     }
                     if is_important append(*tailpipe_rule, " !important");
                     append(*tailpipe_rule, ";\n");
                 } else if equal(abbreviated_name, "grow") {
-                    add_key_with_parsed_value("flex-grow");
+                    ADD_KEY_WITH_PARSED_VALUE("flex-grow");
                 } else if equal(abbreviated_name, "h") {
-                    add_key_with_parsed_value("height");
+                    ADD_KEY_WITH_PARSED_VALUE("height");
                 } else if equal(abbreviated_name, "justifyStart") {
-                    add_key_value_literal("justify-content: flex-start");
+                    ADD_KEY_VALUE_LITERAL("justify-content: flex-start");
                 } else if equal(abbreviated_name, "justifyEnd") {
-                    add_key_value_literal("justify-content: flex-end");
+                    ADD_KEY_VALUE_LITERAL("justify-content: flex-end");
                 } else if equal(abbreviated_name, "justifyCenter") {
-                    add_key_value_literal("justify-content: center");
+                    ADD_KEY_VALUE_LITERAL("justify-content: center");
                 } else if equal(abbreviated_name, "justifyBetween") {
-                    add_key_value_literal("justify-content: space-between");
+                    ADD_KEY_VALUE_LITERAL("justify-content: space-between");
                 } else if equal(abbreviated_name, "justifyAround") {
-                    add_key_value_literal("justify-content: space-around");
+                    ADD_KEY_VALUE_LITERAL("justify-content: space-around");
                 } else if equal(abbreviated_name, "justifyEvenly") {
-                    add_key_value_literal("justify-content: space-evenly");
+                    ADD_KEY_VALUE_LITERAL("justify-content: space-evenly");
                 } else if equal(abbreviated_name, "justifyStretch") {
-                    add_key_value_literal("justify-content: stretch");
+                    ADD_KEY_VALUE_LITERAL("justify-content: stretch");
                 } else if equal(abbreviated_name, "left") {
-                    add_key_with_parsed_value("left");
+                    ADD_KEY_WITH_PARSED_VALUE("left");
                 } else if equal(abbreviated_name, "lightShadow") {
-                    add_key_value_literal("box-shadow: 0 0 16px 0 rgba(255, 255, 255, 0.2)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 0 16px 0 rgba(255, 255, 255, 0.2)");
                 } else if equal(abbreviated_name, "lightShadowSmall") {
-                    add_key_value_literal("box-shadow: 0 0 8px 0 rgba(255, 255, 255, 0.2)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 0 8px 0 rgba(255, 255, 255, 0.2)");
                 } else if equal(abbreviated_name, "m") {
-                    add_key_with_parsed_value("margin");
+                    ADD_KEY_WITH_PARSED_VALUE("margin");
                 } else if equal(abbreviated_name, "maxh") {
-                    add_key_with_parsed_value("max-height");
+                    ADD_KEY_WITH_PARSED_VALUE("max-height");
                 } else if equal(abbreviated_name, "maxw") {
-                    add_key_with_parsed_value("max-width");
+                    ADD_KEY_WITH_PARSED_VALUE("max-width");
                 } else if equal(abbreviated_name, "mb") {
-                    add_key_with_parsed_value("margin-bottom");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-bottom");
                 } else if equal(abbreviated_name, "minh") {
-                    add_key_with_parsed_value("min-height");
+                    ADD_KEY_WITH_PARSED_VALUE("min-height");
                 } else if equal(abbreviated_name, "minw") {
-                    add_key_with_parsed_value("min-width");
+                    ADD_KEY_WITH_PARSED_VALUE("min-width");
                 } else if equal(abbreviated_name, "ml") {
-                    add_key_with_parsed_value("margin-left");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-left");
                 } else if equal(abbreviated_name, "mr") {
-                    add_key_with_parsed_value("margin-right");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-right");
                 } else if equal(abbreviated_name, "mt") {
-                    add_key_with_parsed_value("margin-top");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-top");
                 } else if equal(abbreviated_name, "mx") {
-                    add_key_with_parsed_value("margin-left");
-                    add_key_with_parsed_value("margin-right");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-left");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-right");
                 } else if equal(abbreviated_name, "my") {
-                    add_key_with_parsed_value("margin-top");
-                    add_key_with_parsed_value("margin-bottom");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-top");
+                    ADD_KEY_WITH_PARSED_VALUE("margin-bottom");
                 } else if equal(abbreviated_name, "p") {
-                    add_key_with_parsed_value("padding");
+                    ADD_KEY_WITH_PARSED_VALUE("padding");
                 } else if equal(abbreviated_name, "pb") {
-                    add_key_with_parsed_value("padding-bottom");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-bottom");
                 } else if equal(abbreviated_name, "pl") {
-                    add_key_with_parsed_value("padding-left");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-left");
                 } else if equal(abbreviated_name, "pr") {
-                    add_key_with_parsed_value("padding-right");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-right");
                 } else if equal(abbreviated_name, "pt") {
-                    add_key_with_parsed_value("padding-top");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-top");
                 } else if equal(abbreviated_name, "px") {
-                    add_key_with_parsed_value("padding-left");
-                    add_key_with_parsed_value("padding-right");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-left");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-right");
                 } else if equal(abbreviated_name, "py") {
-                    add_key_with_parsed_value("padding-top");
-                    add_key_with_parsed_value("padding-bottom");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-top");
+                    ADD_KEY_WITH_PARSED_VALUE("padding-bottom");
                 } else if equal(abbreviated_name, "right") {
-                    add_key_with_parsed_value("right");
+                    ADD_KEY_WITH_PARSED_VALUE("right");
                 } else if equal(abbreviated_name, "relative") {
-                    add_key_value_literal("position: relative");
+                    ADD_KEY_VALUE_LITERAL("position: relative");
                 } else if equal(abbreviated_name, "rounded") {
-                    add_key_value_literal("border-radius: 8px;");
+                    ADD_KEY_VALUE_LITERAL("border-radius: 8px;");
                 } else if equal(abbreviated_name, "row") {
-                    add_key_value_literal("flex-direction: row");
+                    ADD_KEY_VALUE_LITERAL("flex-direction: row");
                 } else if equal(abbreviated_name, "shadowSm") {
-                    add_key_value_literal("box-shadow: 0 1px 2px 0 rgb(0, 0, 0, 0.05)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 1px 2px 0 rgb(0, 0, 0, 0.05)");
                 } else if equal(abbreviated_name, "shadow") {
-                    add_key_value_literal("box-shadow: 0 1px 3px 0 rgb(0, 0, 0, 0.1), 0 1px 2px -1px rgb(0, 0, 0, 0.1)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 1px 3px 0 rgb(0, 0, 0, 0.1), 0 1px 2px -1px rgb(0, 0, 0, 0.1)");
                 } else if equal(abbreviated_name, "shadowMd") {
-                    add_key_value_literal("box-shadow: 0 4px 6px -1px rgb(0, 0, 0, 0.1), 0 2px 4px -2px rgb(0, 0, 0, 0.1)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 4px 6px -1px rgb(0, 0, 0, 0.1), 0 2px 4px -2px rgb(0, 0, 0, 0.1)");
                 } else if equal(abbreviated_name, "shadowLg") {
-                    add_key_value_literal("box-shadow: 0 10px 15px -3px rgb(0, 0, 0, 0.1), 0 4px 6px -4px rgb(0, 0, 0, 0.1)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 10px 15px -3px rgb(0, 0, 0, 0.1), 0 4px 6px -4px rgb(0, 0, 0, 0.1)");
                 } else if equal(abbreviated_name, "shadowXl") {
-                    add_key_value_literal("box-shadow: 0 20px 25px -5px rgb(0, 0, 0, 0.1), 0 8px 10px -6px rgb(0, 0, 0, 0.1)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 20px 25px -5px rgb(0, 0, 0, 0.1), 0 8px 10px -6px rgb(0, 0, 0, 0.1)");
                 } else if equal(abbreviated_name, "shadowXxl") {
-                    add_key_value_literal("box-shadow: 0 25px 50px -12px rgb(0, 0, 0, 0.25)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 25px 50px -12px rgb(0, 0, 0, 0.25)");
                 } else if equal(abbreviated_name, "shadowInner") {
-                    add_key_value_literal("box-shadow: inset 0 2px 4px 0 rgb(0, 0, 0, 0.05)");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: inset 0 2px 4px 0 rgb(0, 0, 0, 0.05)");
                 } else if equal(abbreviated_name, "shadowNone") {
-                    add_key_value_literal("box-shadow: 0 0 #0000");
+                    ADD_KEY_VALUE_LITERAL("box-shadow: 0 0 #0000");
                 } else if equal(abbreviated_name, "shrink") {
-                    add_key_with_parsed_value("flex-shrink");
+                    ADD_KEY_WITH_PARSED_VALUE("flex-shrink");
                 } else if equal(abbreviated_name, "sticky") {
-                    add_key_value_literal("position: sticky");
-                    add_key_value_literal("top: 0");
-                    add_key_value_literal("box-sizing: border-box");
+                    ADD_KEY_VALUE_LITERAL("position: sticky");
+                    ADD_KEY_VALUE_LITERAL("top: 0");
+                    ADD_KEY_VALUE_LITERAL("box-sizing: border-box");
                 } else if equal(abbreviated_name, "top") {
-                    add_key_with_parsed_value("top");
+                    ADD_KEY_WITH_PARSED_VALUE("top");
                 } else if equal(abbreviated_name, "underlineDots") {
-                    add_key_value_literal("text-decoration: underline dotted");
+                    ADD_KEY_VALUE_LITERAL("text-decoration: underline dotted");
                 } else if equal(abbreviated_name, "w") {
-                    add_key_with_parsed_value("width");
+                    ADD_KEY_WITH_PARSED_VALUE("width");
                 } else if equal(abbreviated_name, "wrap") {
-                    add_key_value_literal("word-wrap: break-word");
+                    ADD_KEY_VALUE_LITERAL("word-wrap: break-word");
                 } else if equal(abbreviated_name, "z") {
-                    add_key_with_parsed_value("z-index");
+                    if value_and_unit.count
+                    ADD_KEY_WITH_PARSED_VALUE("z-index");
                 } else { // Parsed an unsupported token
                     if !table_contains(*unknown_rules, html_rule) {
                         table_add(*unknown_rules, html_rule, 0);
@@ -393,9 +415,7 @@ main :: () {
     append(*final_output, " * You can edit this file, but I would not recommend it since it will be overwritten without warning the next time you run tailpipe.\n");
     append(*final_output, " * If you want to add your own rules, I recommend you add them to a separate stylesheets (I use a 'custom.css' file for this).\n */\n");
 
-    print("no_namespace_rules:\n");
     for no_namespace_rules {
-        print("%\n", it_index);
         append(*final_output, it_index);
         append(*final_output, "\n");
     }
@@ -408,9 +428,7 @@ main :: () {
     append(*final_output, "  .computer { display: none; }\n");
     append(*final_output, "  .ultrawide { display: none; }\n");
     append(*final_output, "  :root { font-size: 14px; }\n");
-    print("mobile_namespace_rules:\n");
     for mobile_namespace_rules {
-        print("%\n", it_index);
         append(*final_output, it_index);
         append(*final_output, "\n");
     }
@@ -423,10 +441,7 @@ main :: () {
     append(*final_output, "  .computer { display: none; }\n");
     append(*final_output, "  .ultrawide { display: none; }\n");
     append(*final_output, "  :root { font-size: 14px; }\n");
-
-    print("tablet_namespace_rules:\n");
     for tablet_namespace_rules {
-        print("%\n", it_index);
         append(*final_output, it_index);
         append(*final_output, "\n");
     }
