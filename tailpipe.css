@@ -3,33 +3,20 @@
  * You can edit this file, but I would not recommend it since it will be overwritten without warning the next time you run tailpipe.
  * If you want to add your own rules, I recommend you add them to a separate stylesheets (I use a 'custom.css' file for this).
  */
-.dot {
-  list-style-type: disc;
-  margin-left: 1.5rem;
+.grid {
+  display: grid;
 }
 .gap-1rem {
   gap: 1rem;
 }
-.c-white {
-  color: white;
-}
-.bg-\#181818 {
-  background-color: #181818;
+.bg-\#dd0022 {
+  background-color: #dd0022;
 }
 .flex {
   display: flex;
 }
-.c-\#fff {
-  color: #fff;
-}
 .w-100\% {
   width: 100%;
-}
-.column {
-  flex-direction: column;
-}
-.c-\#cafeee {
-  color: #cafeee;
 }
 
 
@@ -40,6 +27,9 @@
   .computer { display: none; }
   .ultrawide { display: none; }
   :root { font-size: 14px; }
+  .m\:w-75\% {
+    width: 75%;
+  }
 }
 
 /* Tablet */
@@ -67,8 +57,8 @@
   .computer { display: none; }
   .ultrawide { display: inherit; }
   :root { font-size: 18px; }
-  .uw\:w-75\% {
-    width: 75%;
+  .uw\:w-50\% {
+    width: 50%;
   }
 }
 

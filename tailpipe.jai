@@ -52,21 +52,25 @@ ADD_KEY_WITH_PARSED_VALUE :: (key: string) -> bool #expand {
     return true;
 }
 
-html_file_path: string = "index.html";
 css_file_path : string = "tailpipe.css";
 verbose_mode  : bool   = false;
 watch_mode    : bool   = false;
 
 file_change_callback :: (watcher: *File_Watcher.File_Watcher(void), change: *File_Watcher.File_Change, user_data: *void) {
-    if ends_with(change.full_path, html_file_path) {
+    file_path_string := change.full_path;
+    file_path := parse_path(file_path_string);
+    file_name := file_path.words[file_path.words.count - 1];
+    print("detected change to %\n", file_name);
+
+    if ends_with(change.full_path, ".html") {
         if verbose_mode {
-            print("Detected change to %, regenerating %", html_file_path, css_file_path);
+            print("Detected change to %, regenerating %", file_path_string, css_file_path);
         }
-        run();
+        run(file_path_string);
     }
 }
 
-run :: () {
+run :: (html_file_path: string) {
     input_html := read_entire_file(html_file_path);
     
     // Using these all as Sets.
@@ -476,10 +480,11 @@ main :: () {
     { // Process arguments
         cli_args := get_command_line_arguments();
         for cli_args {
-            if ends_with(it, ".html") {
-                html_file_path = it;
-            }
-            else if ends_with(it, ".css") {
+            // if ends_with(it, ".html") {
+            //     html_file_path = it;
+            // }
+            // else if ends_with(it, ".css") {
+            if ends_with(it, ".css") {
                 css_file_path = it;
             }
             // Help text
@@ -501,16 +506,25 @@ main :: () {
     }
 
     // Check to see if the html file even exists.
-    if !file_exists(html_file_path) {
-        if verbose_mode {
-            print("ERROR: unable to find input html file at \"%\". Are you sure the pathing is correct?", html_file_path);
-            cwd := get_working_directory();
-            print("Current working directory: %\n", cwd);
-        }
-        exit(1);
-    }
+    // if !file_exists(html_file_path) {
+    //     if verbose_mode {
+    //         print("ERROR: unable to find input html file at \"%\". Are you sure the pathing is correct?", html_file_path);
+    //         cwd := get_working_directory();
+    //         print("Current working directory: %\n", cwd);
+    //     }
+    //     exit(1);
+    // }
 
     if watch_mode {
+        directories: [..] string;
+        array_add(*directories, ".");
+        
+        visit_files_cb :: (info: *File_Visit_Info, user_data: [..]string) {
+            // print("%\n", info.full_name);
+            array_add(*user_data, info.full_name);
+        }
+        visit_files(".", true, directories, visit_files_cb, false, true, true, true);
+
         watcher: File_Watcher.File_Watcher(); // TODO: pass in the info instead of having globals
         watcher_init_succeeded := File_Watcher.init(*watcher, file_change_callback, events_to_watch = .MODIFIED, 0.1);
         if !watcher_init_succeeded {
@@ -519,8 +533,7 @@ main :: () {
         }
         defer File_Watcher.deinit(watcher);
 
-        // TODO: other directories other than cwd
-        add_directories_succeeded := File_Watcher.add_directories(*watcher, ".");
+        add_directories_succeeded := File_Watcher.add_directories(*watcher, ..directories);
         if !add_directories_succeeded {
             log_error("Could not add directory to watcher");
             exit(1);
@@ -533,6 +546,7 @@ main :: () {
         }
 
     } else {
-        run();
+        // TODO
+        run("index.html");
     }
 }
