@@ -116,7 +116,7 @@ run :: (html_file_path: string) {
         // "m:fs-1rem!"
         html_rule := it_index;
 
-        // "m:fs-1rem" -> ["m:fs", "1rem!"]
+        // "m:fs-1rem!" -> ["m:fs", "1rem!"]
         tokens := split(html_rule, "-");
         // "m:fs" -> ["m", "fs"]
         name_and_namespace_as_tokens := split(tokens[0], ":");
@@ -155,6 +155,8 @@ run :: (html_file_path: string) {
                         append(*tailpipe_class, "\\.");
                     case #char "#";
                         append(*tailpipe_class, "\\#");
+                    case #char "/";
+                        append(*tailpipe_class, "\\/");
                     case; // default
                         append(*tailpipe_class, it);
                 }
@@ -186,6 +188,8 @@ run :: (html_file_path: string) {
                     ADD_KEY_VALUE_LITERAL("align-items: baseline");
                 } else if equal(abbreviated_name, "alignStretch") {
                     ADD_KEY_VALUE_LITERAL("align-items: stretch");
+                } else if equal(abbreviated_name, "ar") {
+                    ADD_KEY_WITH_PARSED_VALUE("aspect-ratio");
                 } else if equal(abbreviated_name, "b") {
                     ADD_KEY_WITH_PARSED_VALUE("border");
                 } else if equal(abbreviated_name, "breakAll") {
@@ -229,11 +233,19 @@ run :: (html_file_path: string) {
                     ADD_KEY_VALUE_LITERAL("position: fixed");
                 } else if equal(abbreviated_name, "flex") {
                     ADD_KEY_VALUE_LITERAL("display: flex");
-                } else if equal(abbreviated_name, "fs") {
+                } else if equal(abbreviated_name, "flexWrap") {
+                    ADD_KEY_VALUE_LITERAL("flex-wrap: wrap");
+                }
+                else if equal(abbreviated_name, "flexWrapReverse") {
+                    ADD_KEY_VALUE_LITERAL("flex-wrap: wrap-reverse");
+                }
+                else if equal(abbreviated_name, "fs") {
                     ADD_KEY_WITH_PARSED_VALUE("font-size");
-                } else if equal(abbreviated_name, "gap") {
+                }
+                else if equal(abbreviated_name, "gap") {
                     ADD_KEY_WITH_PARSED_VALUE("gap");
-                } else if equal(abbreviated_name, "grid") {
+                }
+                else if equal(abbreviated_name, "grid") {
                     ADD_KEY_VALUE_LITERAL("display: grid");
                 } else if equal(abbreviated_name, "gridCol") {
                     if has_namespace append(*tailpipe_rule, "  ");
@@ -254,6 +266,8 @@ run :: (html_file_path: string) {
                     ADD_KEY_WITH_PARSED_VALUE("flex-grow");
                 } else if equal(abbreviated_name, "h") {
                     ADD_KEY_WITH_PARSED_VALUE("height");
+                } else if equal(abbreviated_name, "hide") {
+                    ADD_KEY_VALUE_LITERAL("display: none");
                 } else if equal(abbreviated_name, "justifyStart") {
                     ADD_KEY_VALUE_LITERAL("justify-content: flex-start");
                 } else if equal(abbreviated_name, "justifyEnd") {
@@ -344,6 +358,8 @@ run :: (html_file_path: string) {
                     ADD_KEY_VALUE_LITERAL("position: sticky");
                     ADD_KEY_VALUE_LITERAL("top: 0");
                     ADD_KEY_VALUE_LITERAL("box-sizing: border-box");
+                } else if equal(abbreviated_name, "textAlign") {
+                    ADD_KEY_WITH_PARSED_VALUE("text-align");
                 } else if equal(abbreviated_name, "top") {
                     ADD_KEY_WITH_PARSED_VALUE("top");
                 } else if equal(abbreviated_name, "underlineDots") {
@@ -412,11 +428,7 @@ run :: (html_file_path: string) {
     append(*final_output, "\n\n");
 
     append(*final_output, "/* Mobile */\n");
-    append(*final_output, "@media (max-width: 768px) {\n");
-    append(*final_output, "  .mobile { display: inherit; }\n");
-    append(*final_output, "  .tablet { display: none; }\n");
-    append(*final_output, "  .computer { display: none; }\n");
-    append(*final_output, "  .ultrawide { display: none; }\n");
+    append(*final_output, "@media (max-width: 767px) {\n");
     append(*final_output, "  :root { font-size: 14px; }\n");
     for mobile_namespace_rules {
         append(*final_output, it_index);
@@ -425,11 +437,7 @@ run :: (html_file_path: string) {
     append(*final_output, "}\n\n");
 
     append(*final_output, "/* Tablet */\n");
-    append(*final_output, "@media (min-width: 768px) and (max-width: 1024px) {\n");
-    append(*final_output, "  .mobile { display: none; }\n");
-    append(*final_output, "  .tablet { display: inherit; }\n");
-    append(*final_output, "  .computer { display: none; }\n");
-    append(*final_output, "  .ultrawide { display: none; }\n");
+    append(*final_output, "@media (min-width: 768px) and (max-width: 1365px) {\n");
     append(*final_output, "  :root { font-size: 14px; }\n");
     for tablet_namespace_rules {
         append(*final_output, it_index);
@@ -438,11 +446,7 @@ run :: (html_file_path: string) {
     append(*final_output, "}\n\n");
 
     append(*final_output, "/* Computer (desktop / laptop) */\n");
-    append(*final_output, "@media (min-width: 1024px) and (max-width: 3840px) {\n");
-    append(*final_output, "  .mobile { display: none; }\n");
-    append(*final_output, "  .tablet { display: none; }\n");
-    append(*final_output, "  .computer { display: inherit; }\n");
-    append(*final_output, "  .ultrawide { display: none; }\n");
+    append(*final_output, "@media (min-width: 1366px) and (max-width: 3839px) {\n");
     append(*final_output, "  :root { font-size: 18px; }\n");
     for computer_namespace_rules {
         append(*final_output, it_index);
@@ -452,10 +456,6 @@ run :: (html_file_path: string) {
 
     append(*final_output, "/* Ultrawide */\n");
     append(*final_output, "@media (min-width: 3840px) {\n");
-    append(*final_output, "  .mobile { display: none; }\n");
-    append(*final_output, "  .tablet { display: none; }\n");
-    append(*final_output, "  .computer { display: none; }\n");
-    append(*final_output, "  .ultrawide { display: inherit; }\n");
     append(*final_output, "  :root { font-size: 18px; }\n");
     for ultrawide_namespace_rules {
         append(*final_output, it_index);
@@ -518,7 +518,7 @@ main :: () {
     if watch_mode {
         directories: [..] string;
         array_add(*directories, ".");
-        
+
         visit_files_cb :: (info: *File_Visit_Info, user_data: [..]string) {
             // print("%\n", info.full_name);
             array_add(*user_data, info.full_name);
