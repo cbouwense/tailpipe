@@ -151,6 +151,8 @@ run :: () {
                         append(*tailpipe_class, "\\.");
                     case #char "#";
                         append(*tailpipe_class, "\\#");
+                    case #char "/";
+                        append(*tailpipe_class, "\\/");
                     case; // default
                         append(*tailpipe_class, it);
                 }
@@ -182,6 +184,8 @@ run :: () {
                     ADD_KEY_VALUE_LITERAL("align-items: baseline");
                 } else if equal(abbreviated_name, "alignStretch") {
                     ADD_KEY_VALUE_LITERAL("align-items: stretch");
+                } else if equal(abbreviated_name, "ar") {
+                    ADD_KEY_WITH_PARSED_VALUE("aspect-ratio");
                 } else if equal(abbreviated_name, "b") {
                     ADD_KEY_WITH_PARSED_VALUE("border");
                 } else if equal(abbreviated_name, "breakAll") {
@@ -225,6 +229,10 @@ run :: () {
                     ADD_KEY_VALUE_LITERAL("position: fixed");
                 } else if equal(abbreviated_name, "flex") {
                     ADD_KEY_VALUE_LITERAL("display: flex");
+                } else if equal(abbreviated_name, "flexWrap") {
+                    ADD_KEY_VALUE_LITERAL("flex-wrap: wrap");
+                } else if equal(abbreviated_name, "flexWrapReverse") {
+                    ADD_KEY_VALUE_LITERAL("flex-wrap: wrap-reverse");
                 } else if equal(abbreviated_name, "fs") {
                     ADD_KEY_WITH_PARSED_VALUE("font-size");
                 } else if equal(abbreviated_name, "gap") {
@@ -340,6 +348,8 @@ run :: () {
                     ADD_KEY_VALUE_LITERAL("position: sticky");
                     ADD_KEY_VALUE_LITERAL("top: 0");
                     ADD_KEY_VALUE_LITERAL("box-sizing: border-box");
+                } else if equal(abbreviated_name, "textAlign") {
+                    ADD_KEY_WITH_PARSED_VALUE("text-align");
                 } else if equal(abbreviated_name, "top") {
                     ADD_KEY_WITH_PARSED_VALUE("top");
                 } else if equal(abbreviated_name, "underlineDots") {
@@ -405,15 +415,11 @@ run :: () {
         append(*final_output, it_index);
         append(*final_output, "\n");
     }
-    append(*final_output, "\n\n");
+    append(*final_output, "\n");
 
     append(*final_output, "/* Mobile */\n");
     append(*final_output, "@media (max-width: 768px) {\n");
-    append(*final_output, "  .mobile { display: inherit; }\n");
-    append(*final_output, "  .tablet { display: none; }\n");
-    append(*final_output, "  .computer { display: none; }\n");
-    append(*final_output, "  .ultrawide { display: none; }\n");
-    append(*final_output, "  :root { font-size: 14px; }\n");
+    append(*final_output, "  .m\\:hide { display: none; }\n");
     for mobile_namespace_rules {
         append(*final_output, it_index);
         append(*final_output, "\n");
@@ -422,11 +428,7 @@ run :: () {
 
     append(*final_output, "/* Tablet */\n");
     append(*final_output, "@media (min-width: 768px) and (max-width: 1024px) {\n");
-    append(*final_output, "  .mobile { display: none; }\n");
-    append(*final_output, "  .tablet { display: inherit; }\n");
-    append(*final_output, "  .computer { display: none; }\n");
-    append(*final_output, "  .ultrawide { display: none; }\n");
-    append(*final_output, "  :root { font-size: 14px; }\n");
+    append(*final_output, "  .t\\:hide { display: none; }\n");
     for tablet_namespace_rules {
         append(*final_output, it_index);
         append(*final_output, "\n");
@@ -435,11 +437,7 @@ run :: () {
 
     append(*final_output, "/* Computer (desktop / laptop) */\n");
     append(*final_output, "@media (min-width: 1024px) and (max-width: 3840px) {\n");
-    append(*final_output, "  .mobile { display: none; }\n");
-    append(*final_output, "  .tablet { display: none; }\n");
-    append(*final_output, "  .computer { display: inherit; }\n");
-    append(*final_output, "  .ultrawide { display: none; }\n");
-    append(*final_output, "  :root { font-size: 18px; }\n");
+    append(*final_output, "  .c\\:hide { display: none; }\n");
     for computer_namespace_rules {
         append(*final_output, it_index);
         append(*final_output, "\n");
@@ -448,11 +446,7 @@ run :: () {
 
     append(*final_output, "/* Ultrawide */\n");
     append(*final_output, "@media (min-width: 3840px) {\n");
-    append(*final_output, "  .mobile { display: none; }\n");
-    append(*final_output, "  .tablet { display: none; }\n");
-    append(*final_output, "  .computer { display: none; }\n");
-    append(*final_output, "  .ultrawide { display: inherit; }\n");
-    append(*final_output, "  :root { font-size: 18px; }\n");
+    append(*final_output, "  .uw\\:hide { display: none; }\n");
     for ultrawide_namespace_rules {
         append(*final_output, it_index);
         append(*final_output, "\n");

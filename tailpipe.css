@@ -32,41 +32,24 @@
   color: #cafeee;
 }
 
-
 /* Mobile */
 @media (max-width: 768px) {
-  .mobile { display: inherit; }
-  .tablet { display: none; }
-  .computer { display: none; }
-  .ultrawide { display: none; }
-  :root { font-size: 14px; }
+  .m\:hide { display: none; }
 }
 
 /* Tablet */
 @media (min-width: 768px) and (max-width: 1024px) {
-  .mobile { display: none; }
-  .tablet { display: inherit; }
-  .computer { display: none; }
-  .ultrawide { display: none; }
-  :root { font-size: 14px; }
+  .t\:hide { display: none; }
 }
 
 /* Computer (desktop / laptop) */
 @media (min-width: 1024px) and (max-width: 3840px) {
-  .mobile { display: none; }
-  .tablet { display: none; }
-  .computer { display: inherit; }
-  .ultrawide { display: none; }
-  :root { font-size: 18px; }
+  .c\:hide { display: none; }
 }
 
 /* Ultrawide */
 @media (min-width: 3840px) {
-  .mobile { display: none; }
-  .tablet { display: none; }
-  .computer { display: none; }
-  .ultrawide { display: inherit; }
-  :root { font-size: 18px; }
+  .uw\:hide { display: none; }
   .uw\:w-75\% {
     width: 75%;
   }
